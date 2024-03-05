@@ -13,3 +13,6 @@ bin/
 out/
 *.chain
 *.spvchain
+output/
+.DS_STORE
+core/.DS_STORE
