@@ -512,7 +512,7 @@ public class WalletProtobufSerializer {
         KeyChainGroup keyChainGroup;
         if (walletProto.hasEncryptionParameters()) {
             Protos.ScryptParameters encryptionParameters = walletProto.getEncryptionParameters();
-            if (encryptionParameters.getSalt().toString().contains("KeyStoreKeyCrypter")) {
+            if (walletProto.getEncryptionType() == EncryptionType.ENCRYPTED_KEYSTORE_AES) {
                 final KeyCrypterScrypt keyCrypter = (KeyCrypterScrypt) keyCrypterFactory.createKeyCrypter();
                 keyChainGroup = KeyChainGroup.fromProtobufEncrypted(network, walletProto.getKeyList(), keyCrypter, keyChainFactory);
             } else {
