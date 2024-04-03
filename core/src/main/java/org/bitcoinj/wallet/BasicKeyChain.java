@@ -360,7 +360,8 @@ public class BasicKeyChain implements EncryptableKeyChain {
                     .setEncryptedPrivateKey(ByteString.copyFrom(data.encryptedBytes))
                     .setInitialisationVector(ByteString.copyFrom(data.initialisationVector)));
             // We don't allow mixing of encryption types at the moment.
-            checkState(item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES);
+            checkState(item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES ^
+                    item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_KEYSTORE_AES);
             proto.setType(Protos.Key.Type.ENCRYPTED_SCRYPT_AES);
         } else {
             final byte[] secret = item.getSecretBytes();
@@ -416,7 +417,8 @@ public class BasicKeyChain implements EncryptableKeyChain {
                         throw new UnreadableWalletException("Encrypted private key data missing");
                     Protos.EncryptedData proto = key.getEncryptedData();
                     EncryptedData e = new EncryptedData(proto.getInitialisationVector().toByteArray(),
-                            proto.getEncryptedPrivateKey().toByteArray());
+                            proto.getEncryptedPrivateKey().toByteArray(),
+                            keyCrypter.getUnderstoodEncryptionType());
                     ecKey = ECKey.fromEncrypted(e, keyCrypter, pub);
                 } else {
                     if (priv != null)

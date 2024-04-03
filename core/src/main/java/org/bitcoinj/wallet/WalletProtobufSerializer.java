@@ -229,6 +229,8 @@ public class WalletProtobufSerializer {
             if (keyCrypter instanceof KeyCrypterScrypt) {
                 KeyCrypterScrypt keyCrypterScrypt = (KeyCrypterScrypt) keyCrypter;
                 walletBuilder.setEncryptionParameters(keyCrypterScrypt.getScryptParameters());
+            } else if (keyCrypterFactory == null) {
+                log.info("KeyCrypterFactory exists");
             } else {
                 // Some other form of encryption has been specified that we do not know how to persist.
                 throw new RuntimeException("The wallet has encryption of type '" + keyCrypter.getUnderstoodEncryptionType() + "' but this WalletProtobufSerializer does not know how to persist this.");
@@ -512,12 +514,14 @@ public class WalletProtobufSerializer {
         KeyChainGroup keyChainGroup;
         if (walletProto.hasEncryptionParameters()) {
             Protos.ScryptParameters encryptionParameters = walletProto.getEncryptionParameters();
-            if (walletProto.getEncryptionType() == EncryptionType.ENCRYPTED_KEYSTORE_AES) {
+            if (walletProto.getEncryptionType() == EncryptionType.ENCRYPTED_SCRYPT_AES) {
+                final KeyCrypterScrypt keyCrypter = new KeyCrypterScrypt(encryptionParameters);
+                keyChainGroup = KeyChainGroup.fromProtobufEncrypted(network, walletProto.getKeyList(), keyCrypter, keyChainFactory);
+            } else if (walletProto.getEncryptionType() == EncryptionType.ENCRYPTED_KEYSTORE_AES){
                 final KeyCrypterScrypt keyCrypter = (KeyCrypterScrypt) keyCrypterFactory.createKeyCrypter();
                 keyChainGroup = KeyChainGroup.fromProtobufEncrypted(network, walletProto.getKeyList(), keyCrypter, keyChainFactory);
             } else {
-                final KeyCrypterScrypt keyCrypter = new KeyCrypterScrypt(encryptionParameters);
-                keyChainGroup = KeyChainGroup.fromProtobufEncrypted(network, walletProto.getKeyList(), keyCrypter, keyChainFactory);
+                throw new UnreadableWalletException("Unknown encryption type");
             }
         } else {
             keyChainGroup = KeyChainGroup.fromProtobufUnencrypted(network, walletProto.getKeyList(), keyChainFactory);
