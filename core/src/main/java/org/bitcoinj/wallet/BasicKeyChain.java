@@ -360,8 +360,12 @@ public class BasicKeyChain implements EncryptableKeyChain {
                     .setEncryptedPrivateKey(ByteString.copyFrom(data.encryptedBytes))
                     .setInitialisationVector(ByteString.copyFrom(data.initialisationVector)));
             // We don't allow mixing of encryption types at the moment.
-            checkState(item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES);
-            proto.setType(Protos.Key.Type.ENCRYPTED_SCRYPT_AES);
+            if (item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES) {
+                proto.setType(Protos.Key.Type.ENCRYPTED_SCRYPT_AES);
+            } else if (item.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_ANDROIDKEYSTORE_AES) {
+                proto.setType(Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES);
+            }
+
         } else {
             final byte[] secret = item.getSecretBytes();
             // The secret might be missing in the case of a watching wallet, or a key for which the private key
@@ -401,9 +405,12 @@ public class BasicKeyChain implements EncryptableKeyChain {
             checkState(hashToKeys.isEmpty(), () ->
                     "tried to deserialize into a non-empty chain");
             for (Protos.Key key : keys) {
-                if (key.getType() != Protos.Key.Type.ORIGINAL && key.getType() != Protos.Key.Type.ENCRYPTED_SCRYPT_AES)
+                if (key.getType() != Protos.Key.Type.ORIGINAL &&
+                        key.getType() != Protos.Key.Type.ENCRYPTED_SCRYPT_AES &&
+                        key.getType() != Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES)
                     continue;
-                boolean encrypted = key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES;
+                boolean encrypted = (key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES ||
+                                        key.getType() == Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES);
                 byte[] priv = key.hasSecretBytes() ? key.getSecretBytes().toByteArray() : null;
                 if (!key.hasPublicKey())
                     throw new UnreadableWalletException("Public key missing");
@@ -414,9 +421,18 @@ public class BasicKeyChain implements EncryptableKeyChain {
                             "this wallet is encrypted but encrypt() was not called prior to deserialization");
                     if (!key.hasEncryptedData())
                         throw new UnreadableWalletException("Encrypted private key data missing");
+                    Protos.Wallet.EncryptionType encryptionType = null;
+                    if (key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES) {
+                        encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES;
+                    } else if (key.getType() == Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES){
+                        encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_ANDROIDKEYSTORE_AES;
+                    } else {
+                        throw new UnreadableWalletException("Can't deserialize wallet. Unknown encryption type used");
+                    }
                     Protos.EncryptedData proto = key.getEncryptedData();
                     EncryptedData e = new EncryptedData(proto.getInitialisationVector().toByteArray(),
-                            proto.getEncryptedPrivateKey().toByteArray());
+                            proto.getEncryptedPrivateKey().toByteArray(),
+                            encryptionType);
                     ecKey = ECKey.fromEncrypted(e, keyCrypter, pub);
                 } else {
                     if (priv != null)

@@ -106,6 +106,9 @@ message Key {
      * key can be rederived on the fly.
      */
     DETERMINISTIC_KEY = 4;
+
+    /** Encrypted with AndroidKeyStore and AES - Original bitcoin secp256k1 curve */
+    ENCRYPTED_ANDROIDKEYSTORE_AES = 5;
   }
   required Type type = 1;
 
@@ -356,8 +359,9 @@ message Wallet {
    * When a wallet is ENCRYPTED_SCRYPT_AES the keys are either encrypted with the wallet password or are unencrypted.
    */
   enum EncryptionType {
-    UNENCRYPTED = 1;                 // All keys in the wallet are unencrypted
-    ENCRYPTED_SCRYPT_AES = 2;        // All keys are encrypted with a passphrase based KDF of scrypt and AES encryption
+    UNENCRYPTED = 1;                          // All keys in the wallet are unencrypted
+    ENCRYPTED_SCRYPT_AES = 2;                 // All keys are encrypted with a passphrase based KDF of scrypt and AES encryption
+    ENCRYPTED_ANDROIDKEYSTORE_AES = 3;        // All keys are encrypted with an AES Key using AndroidKeyStore
   }
 
   required string network_identifier = 1; // the network used by this wallet

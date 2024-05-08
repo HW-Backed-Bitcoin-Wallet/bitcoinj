@@ -874,13 +874,23 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                 } else if (key.hasEncryptedData()) {
                     if (key.hasDeterministicSeed())
                         throw new UnreadableWalletException("Malformed key proto: " + key);
+                    Protos.Wallet.EncryptionType encryptionType = null;
+                    if (key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES) {
+                        encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES;
+                    } else if (key.getType() == Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES){
+                        encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_ANDROIDKEYSTORE_AES;
+                    } else {
+                        throw new UnreadableWalletException("Can't deserialize wallet. Unknown encryption type used");
+                    }
                     EncryptedData data = new EncryptedData(key.getEncryptedData().getInitialisationVector().toByteArray(),
-                            key.getEncryptedData().getEncryptedPrivateKey().toByteArray());
+                            key.getEncryptedData().getEncryptedPrivateKey().toByteArray(),
+                            encryptionType);
                     EncryptedData encryptedSeedBytes = null;
                     if (key.hasEncryptedDeterministicSeed()) {
                         Protos.EncryptedData encryptedSeed = key.getEncryptedDeterministicSeed();
                         encryptedSeedBytes = new EncryptedData(encryptedSeed.getInitialisationVector().toByteArray(),
-                                encryptedSeed.getEncryptedPrivateKey().toByteArray());
+                                encryptedSeed.getEncryptedPrivateKey().toByteArray(),
+                                encryptionType);
                     }
                     seed = new DeterministicSeed(data, encryptedSeedBytes, seedCreationTime);
                 } else {
@@ -946,9 +956,18 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                     detkey = new DeterministicKey(path, chainCode, pubkey, priv, parent);
                 } else {
                     if (key.hasEncryptedData()) {
+                        Protos.Wallet.EncryptionType encryptionType = null;
+                        if (key.getType() == Protos.Key.Type.ENCRYPTED_SCRYPT_AES) {
+                            encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES;
+                        } else if (key.getType() == Protos.Key.Type.ENCRYPTED_ANDROIDKEYSTORE_AES){
+                            encryptionType = Protos.Wallet.EncryptionType.ENCRYPTED_ANDROIDKEYSTORE_AES;
+                        } else {
+                            throw new UnreadableWalletException("Can't deserialize wallet. Unknown encryption type used");
+                        }
                         Protos.EncryptedData proto = key.getEncryptedData();
                         EncryptedData data = new EncryptedData(proto.getInitialisationVector().toByteArray(),
-                                proto.getEncryptedPrivateKey().toByteArray());
+                                proto.getEncryptedPrivateKey().toByteArray(),
+                                encryptionType);
                         Objects.requireNonNull(crypter, "Encountered an encrypted key but no key crypter provided");
                         detkey = new DeterministicKey(path, chainCode, crypter, pubkey, data, parent);
                     } else {
@@ -1385,7 +1404,8 @@ public class DeterministicKeyChain implements EncryptableKeyChain {
                     .setEncryptedPrivateKey(ByteString.copyFrom(data.encryptedBytes))
                     .setInitialisationVector(ByteString.copyFrom(data.initialisationVector)));
             // We don't allow mixing of encryption types at the moment.
-            checkState(seed.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES);
+            checkState((seed.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_SCRYPT_AES) ^
+                    (seed.getEncryptionType() == Protos.Wallet.EncryptionType.ENCRYPTED_ANDROIDKEYSTORE_AES));
         } else {
             final byte[] secret = seed.getSeedBytes();
             if (secret != null)
